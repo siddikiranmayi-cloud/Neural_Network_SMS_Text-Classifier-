@@ -1,0 +1,167 @@
+Copy of fcc_sms_text_classification.ipynb_
+
+[2]
+0s
+
+import tensorflow as tf
+import pandas as pd
+from tensorflow import keras
+import numpy as np
+
+# Use standard TextVectorization layer
+from tensorflow.keras.layers import TextVectorization, Embedding, Dense, GlobalAveragePooling1D
+
+print("TensorFlow version:", tf.__version__)
+TensorFlow version: 2.20.0
+
+[3]
+0s
+# get data files
+!wget https://cdn.freecodecamp.org/project-data/sms/train-data.tsv
+!wget https://cdn.freecodecamp.org/project-data/sms/valid-data.tsv
+
+train_file_path = "train-data.tsv"
+test_file_path = "valid-data.tsv"
+--2026-07-06 03:47:38--  https://cdn.freecodecamp.org/project-data/sms/train-data.tsv
+Resolving cdn.freecodecamp.org (cdn.freecodecamp.org)... 104.26.3.33, 104.26.2.33, 172.67.70.149, ...
+Connecting to cdn.freecodecamp.org (cdn.freecodecamp.org)|104.26.3.33|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 358233 (350K) [text/tab-separated-values]
+Saving to: ‘train-data.tsv’
+
+train-data.tsv      100%[===================>] 349.84K  --.-KB/s    in 0.04s   
+
+2026-07-06 03:47:39 (9.63 MB/s) - ‘train-data.tsv’ saved [358233/358233]
+
+--2026-07-06 03:47:39--  https://cdn.freecodecamp.org/project-data/sms/valid-data.tsv
+Resolving cdn.freecodecamp.org (cdn.freecodecamp.org)... 104.26.3.33, 104.26.2.33, 172.67.70.149, ...
+Connecting to cdn.freecodecamp.org (cdn.freecodecamp.org)|104.26.3.33|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 118774 (116K) [text/tab-separated-values]
+Saving to: ‘valid-data.tsv’
+
+valid-data.tsv      100%[===================>] 115.99K  --.-KB/s    in 0.02s   
+
+2026-07-06 03:47:39 (7.48 MB/s) - ‘valid-data.tsv’ saved [118774/118774]
+
+
+[4]
+0s
+# Load TSV files (they have no headers, column 0 is label, column 1 is text)
+train_df = pd.read_csv(train_file_path, sep='\t', header=None, names=['label', 'message'])
+test_df = pd.read_csv(test_file_path, sep='\t', header=None, names=['label', 'message'])
+
+# Convert labels ('ham' -> 0, 'spam' -> 1)
+train_labels = train_df['label'].map({'ham': 0, 'spam': 1}).values
+test_labels = test_df['label'].map({'ham': 0, 'spam': 1}).values
+
+train_sentences = train_df['message'].values
+test_sentences = test_df['message'].values
+
+[5]
+5m
+
+# Define Text Hyperparameters
+VOCAB_SIZE = 10000
+MAX_LEN = 250
+EMBEDDING_DIM = 64  # Increased embedding size for better pattern capture
+
+# Create text vectorization mapping
+vectorizer = TextVectorization(
+    max_tokens=VOCAB_SIZE,
+    output_mode='int',
+    output_sequence_length=MAX_LEN
+)
+vectorizer.adapt(train_sentences)
+
+# Build Sequential Model with a Bidirectional LSTM
+model = tf.keras.Sequential([
+    vectorizer,
+    Embedding(VOCAB_SIZE, EMBEDDING_DIM, input_length=MAX_LEN),
+    tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(32)), # Context-aware sequence processing
+    Dense(16, activation='relu'),
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(
+    loss='binary_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy']
+)
+
+# Train the upgraded model
+model.fit(
+    train_sentences,
+    train_labels,
+    epochs=10,
+    validation_data=(test_sentences, test_labels),
+    verbose=1
+)
+Epoch 1/10
+/usr/local/lib/python3.12/dist-packages/keras/src/layers/core/embedding.py:100: UserWarning: Argument `input_length` is deprecated. Just remove it.
+  warnings.warn(
+131/131 ━━━━━━━━━━━━━━━━━━━━ 31s 201ms/step - accuracy: 0.8892 - loss: 0.2488 - val_accuracy: 0.9720 - val_loss: 0.1424
+Epoch 2/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 25s 192ms/step - accuracy: 0.9873 - loss: 0.0749 - val_accuracy: 0.9849 - val_loss: 0.0546
+Epoch 3/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 25s 188ms/step - accuracy: 0.9952 - loss: 0.0214 - val_accuracy: 0.9856 - val_loss: 0.0475
+Epoch 4/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 41s 186ms/step - accuracy: 0.9969 - loss: 0.0095 - val_accuracy: 0.9878 - val_loss: 0.0485
+Epoch 5/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 42s 197ms/step - accuracy: 0.9995 - loss: 0.0026 - val_accuracy: 0.9885 - val_loss: 0.0508
+Epoch 6/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 25s 187ms/step - accuracy: 0.9995 - loss: 0.0012 - val_accuracy: 0.9885 - val_loss: 0.0552
+Epoch 7/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 42s 196ms/step - accuracy: 0.9998 - loss: 5.3682e-04 - val_accuracy: 0.9871 - val_loss: 0.0614
+Epoch 8/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 26s 196ms/step - accuracy: 1.0000 - loss: 3.8705e-04 - val_accuracy: 0.9871 - val_loss: 0.0602
+Epoch 9/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 26s 195ms/step - accuracy: 1.0000 - loss: 2.2157e-04 - val_accuracy: 0.9878 - val_loss: 0.0634
+Epoch 10/10
+131/131 ━━━━━━━━━━━━━━━━━━━━ 24s 187ms/step - accuracy: 1.0000 - loss: 1.6659e-04 - val_accuracy: 0.9878 - val_loss: 0.0667
+<keras.src.callbacks.history.History at 0x793a7a7852b0>
+
+[6]
+0s
+
+# function to predict messages based on model
+def predict_message(pred_text):
+  input_tensor = tf.constant([pred_text])
+  probability = model.predict(input_tensor, verbose=0)[0][0]
+  label = "spam" if probability >= 0.5 else "ham"
+  return [float(probability), label]
+
+pred_text = "how are you doing today?"
+print(predict_message(pred_text))
+[9.171377314487472e-05, 'ham']
+
+[7]
+0s
+
+# Run this cell to test your function and model. Do not modify contents.
+def test_predictions():
+  test_messages = ["how are you doing today",
+                   "sale today! to stop texts call 98912460324",
+                   "i dont want to go. can we try it a different day? available sat",
+                   "our new mobile video service is live. just install on your phone to start watching.",
+                   "you have won £1000 cash! call to claim your prize.",
+                   "i'll bring it tomorrow. don't forget the milk.",
+                   "wow, is your arm alright. that happened to me one time too"
+                  ]
+
+  test_answers = ["ham", "spam", "ham", "spam", "spam", "ham", "ham"]
+  passed = True
+
+  for msg, ans in zip(test_messages, test_answers):
+    prediction = predict_message(msg)
+    if prediction[1] != ans:
+      passed = False
+
+  if passed:
+    print("You passed the challenge. Great job!")
+  else:
+    print("You haven't passed yet. Keep trying.")
+
+test_predictions()
+You passed the challenge. Great job!
+
